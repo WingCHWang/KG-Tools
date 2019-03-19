@@ -2,25 +2,69 @@
 # -*- coding: utf-8 -*-
 
 from kgtools.wrapper import Singleton, Lazy
+import numpy as np
+import threading
 
 
-@Singleton
 class Vocab:
-    def __init__(self, stopwords=None):
+    _instance_lock = threading.Lock()
+
+    def __init__(self, stopwords=None, emb_size=100):
         self.words = set()
-        self.embs = {}
+        self.embedding = {}
         self.stopwords = stopwords
+        self.emb_size = emb_size
+
+        self.ZERO = np.array([0.] * self.emb_size)
+
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(Vocab, "_instance"):
+            with Vocab._instance_lock:
+                if not hasattr(Vocab, "_instance"):
+                    Vocab._instance = object.__new__(cls)
+        return Vocab._instance
 
     def get_emb(self, word):
-        return self.embs[word]
+
+        return self.embedding.get(word, self.ZERO)
+
+    def add(self, word):
+        self.words.add(word)
 
     def __len__(self):
         return len(self.words)
 
 
 class Token:
-    def __init__(self, vocab, text, lemma, pos, dep):
-        pass
+    def __init__(self, text, lemma, vocab=Vocab(), pos=None, dep=None, lemma_first=True):
+
+        self.text = text
+        self.lemma = lemma
+        self.vocab = vocab
+        self.vocab.add(lemma if lemma_first else text)
+        self.pos = pos
+        self.dep = dep
+
+        self.lemma_first = lemma_first
+
+    def __str__(self):
+        return self.lemma if self.lemma_first else self.text
+
+    def __hash__(self):
+        return hash(str(self))
+
+    @Lazy
+    def emb(self):
+        return self.vocab.get_emb(str(self))
+
+
+class Span:
+    def __init__(self, text, tokens):
+        self.text = text
+        self.tokens = tokens
+
+    def __add__(self, other):
+        return Span(self.text + " " + other.text, self.tokens + other.tokens)
 
 
 class Sentence:
@@ -53,6 +97,14 @@ class Sentence:
             return self
 
     @Lazy
+    def tokenized_text(self):
+        return " ".join([str(token) for token in self.tokens])
+
+    @Lazy
+    def lemma_text(self):
+        return " ".join([token.lemma for token in self.tokens])
+
+    @Lazy
     def emb(self):
         pass
 
@@ -72,7 +124,15 @@ class Doc:
         return iter(self.sents)
 
 
+class RawDoc:
+    def __init__(self, url, texts):
+        self.url = url
+        self.texts = texts
+
+    def __iter__(self):
+        return iter(self.texts)
+
+
 if __name__ == "__main__":
     d1 = {Sentence("hello"): 1, Sentence("world"): 2, Sentence("!"): 3}
     print(d1[Sentence("hello")])
-    

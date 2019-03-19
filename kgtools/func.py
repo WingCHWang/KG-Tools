@@ -11,6 +11,7 @@ import numbers
 WORKERS = multiprocessing.cpu_count() - 1
 del multiprocessing
 
+
 def reduce_sets(sets):
     return reduce(lambda x, y: x | y, sets)
 
@@ -37,7 +38,8 @@ def reduce_seqs(seqs):
 
 
 def parallel(fn, data, *args, shuffle=True, in_place=False, workers=WORKERS):
-    print("Start %d workers for '%s'... (%s)" % (workers, fn.__qualname__, time.asctime(time.localtime(time.time()))))
+    print("Start %d workers..." % workers)
+
     if shuffle:
         random.shuffle(data)
 
@@ -53,12 +55,13 @@ def parallel(fn, data, *args, shuffle=True, in_place=False, workers=WORKERS):
     pool.close()
     pool.join()
 
+    result = None
     if not in_place:
         result = [p.get() for p in proc]
         result = reduce_seqs(result)
-        if result is not None:
-            return result
-    print("Finish %d workers for '%s'... (%s)" % (workers, fn.__qualname__, time.asctime(time.localtime(time.time()))))
+
+    if result is not None:
+        return result
 
 
 # test

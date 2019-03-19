@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import time
+
+
+def TimeLog(fn):
+    def inner(*args, **kwargs):
+        print("Start '%s'... (%s)" % (fn.__qualname__, time.asctime(time.localtime(time.time()))))
+        rs = fn(*args, **kwargs)
+        print("Finish '%s'... (%s)" % (fn.__qualname__, time.asctime(time.localtime(time.time()))))
+        return rs
+    return inner
+
 
 class Lazy(object):
     def __init__(self, func):
