@@ -1,23 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
 from abc import ABCMeta, abstractmethod
+from typing import List
 import re
 from bs4 import BeautifulSoup
-from kgtools.type import RawDoc
-# from nltk.tokenize import sent_tokenize
 
-# from kgtools.type import Sentence, Doc
+from annotation import Parallel, TimeLog
 
 
-class BaseCleaner:
-    __name__ = "Cleaner"
+class HTMLParser:
+    __name__ = "HTMLParser"
 
-    def __init__(self, rules=None):
-        self.rules = rules
-        self.root_nodes = {rule["attr"]: rule["value"] for rule in rules if rule["type"] == "root_node"}
-        self.removes = {rule["attr"]: rule["value"] for rule in rules if rule["type"] == "remove"}
+    class Node:
+        def __init__(self, key, value):
+            assert key in {"name", "class_", "id"}, "The parameter 'key' must be in {'name', 'class_', 'id'}"
+            self.key = key
+            self.value = value
 
-    def worker(self, html):
+    def __init__(self, entry_nodes: List[Node]=None, filter_nodes: List[Node]=None):
+        self.entry_nodes = entry_nodes if entry_nodes is not None else []
+        self.filter_nodes = filter_nodes if filter_nodes is not None else []
+
+    def parse(self, html):
         body = BeautifulSoup(html, "lxml").body
 
         # remove useless elements
@@ -30,100 +35,89 @@ class BaseCleaner:
         footers = body.findAll("footer")
         [footer.extract() for footer in footers]
 
-        for attr, value in self.removes.items():
-            if attr == "tag":
-                rms = body.findAll(value)
-                [rm.extract() for rm in rms]
-            elif attr == "id":
-                rms = body.findAll(id=value)
-                [rm.extract() for rm in rms]
-            elif attr == "class":
-                rms = body.findAll(class_=value)
-                [rm.extract() for rm in rms]
+        for node in self.filter_nodes:
+            filtered = body.findAll(**{node.key: node.value})
+            [n.extract() for n in filtered]
 
-        roots = []
-        for attr, value in self.root_nodes.items():
-            if attr == "tag":
-                roots.extend(body.findAll(value))
-            elif attr == "id":
-                roots.extend(body.findAll(id=value))
-            elif attr == "class":
-                roots.extend(body.findAll(class_=value))
-        if len(roots) == 0:
-            roots = [body]
+        entries = []
+        for node in self.entry_nodes:
+            entries.extend(body.findAll(**{node.key: node.value}))
+        if len(entries) == 0:
+            entries = [body]
 
-        texts = []
-        for root in roots:
-            for li in root.findAll("li"):
+        texts = set()
+        for entry in entries:
+            for li in entry.findAll("li"):
                 string = li.get_text().strip()
                 if len(string) > 0 and string[-1] not in set(".?!:;,"):
                     string = string + "."
                 li.clear()
                 li.append(string)
-            for h in root.findAll(re.compile(r'h[1-6]')):
+            for h in entry.findAll(re.compile(r'h[1-6]')):
                 string = h.get_text().strip()
                 if len(string) > 0 and string[-1] not in set(".?!:;,"):
                     string = string + "."
                 h.clear()
                 h.append(string)
-            for p in root.findAll("p"):
+            for p in entry.findAll("p"):
                 string = p.get_text().strip()
                 if len(string) > 0 and string[-1] not in set(".?!:;,"):
                     string = string + "."
                 p.clear()
                 p.append(string)
 
-            for table in root.findAll("table"):
+            for table in entry.findAll("table"):
                 table.clear()
                 table.append("-TAB-")
-            for img in root.findAll("img"):
+            for img in entry.findAll("img"):
                 if not img.get("alt") or len(img["alt"]) == 0:
                     img_alt = "-IMG-"
                 else:
                     img_alt = img["alt"]
                 img.insert_after(img_alt)
-            for code in root.findAll("code"):
+            for code in entry.findAll("code"):
                 string = code.get_text().strip()
                 if len(string.split()) > 5 or len(string) > 50:
                     string = "-CODE-"
-                # else:
-                #     string = "$CODE" + string + "CODE$"
                 code.clear()
                 code.append(string)
 
-            for pre in root.findAll("pre"):
+            for pre in entry.findAll("pre"):
                 pre.clear()
-                pre.append("-CODE-.")
-            for pre in root.findAll("blockquote"):
+                pre.append("-PRE-.")
+            for pre in entry.findAll("blockquote"):
                 pre.clear()
                 pre.append("-QUOTE-.")
-            text = root.get_text()
+            text = entry.get_text()
             text = text.strip() + " "
             text = re.sub(r'(https?://.*?)([^a-zA-Z0-9/]?\s)', r'-URL-\2', text)
-            texts.append(text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            if len(text) > 0:
+                if text[-1] not in set(".?!:;,"):
+                    text = text + "."
+                texts.add(text)
         return texts
 
-    def clean(self, htmls):
+    @TimeLog
+    @Parallel()
+    def process(self, html_list):
         docs = set()
-        for url, html in htmls:
-            texts = self.worker(html)
-            docs.add(RawDoc(url, texts))
+        for html in html_list:
+            texts = self.parse(html)
+            docs.update(texts)
         return docs
 
-    def process(self, htmls):
-        return self.clean(htmls)
 
-
-class JavaDocCleaner(BaseCleaner):
-    __name__ = "Javadoc Cleaner"
+class JavadocParser(HTMLParser):
+    __name__ = "JavadocParser"
 
     def __init__(self, **cfg):
         super(self.__class__, self).__init__(**cfg)
 
-    def worker(self, html):
-        soup = BeautifulSoup(html, "lxml")
+    def parse(self, html):
+        body = BeautifulSoup(html, "lxml").body
         strings = []
-        for div in soup.select(".block"):
+        for div in body.select(".block"):
             string = div.get_text().strip()
             if len(string) > 0 and string[-1] not in set(".?!"):
                 string = string + "."
@@ -132,4 +126,4 @@ class JavaDocCleaner(BaseCleaner):
 
 
 if __name__ == "__main__":
-    html_cleaner = BaseCleaner()
+    html_parser = HTMLParser()

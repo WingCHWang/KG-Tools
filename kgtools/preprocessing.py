@@ -15,25 +15,24 @@ from kgtools.wrapper import TimeLog
 class Pipeline:
     def __init__(self, vocab=Vocab(), conf=None):
         self.vocab = vocab
-        conf = {} if conf is None else conf
-        self.cleaner = BaseCleaner(**(conf.get("cleaner", {})))
-        self.tokenizer = Tokenizer(**(conf.get("tokenizer", {})))
-        self.w2v = Word2Vec(**(conf.get("word2vec", {})))
+        self.conf = {} if conf is None else conf
 
     def process(self, data):
+
         @TimeLog
         def clean():
-            return parallel(self.cleaner.clean, list(data.items()))
+            return parallel(BaseCleaner(**(self.conf.get("cleaner", {}))).clean, list(data.items()))
         rawdocs = clean()
 
         @TimeLog
         def tokenize():
-            return self.tokenizer.tokenize(rawdocs)
-        docs, sentences = tokenize()
+            return Tokenizer(**(self.conf.get("tokenizer", {}))).tokenize(rawdocs)
+        docs, sentences, vocab = tokenize()
+        print(len(sentences))
 
         @TimeLog
         def word2vec():
-            self.w2v.train(sentences)
+            Word2Vec(**(self.conf.get("word2vec", {}))).train(sentences)
         word2vec()
 
         return docs, sentences
@@ -45,10 +44,9 @@ if __name__ == "__main__":
             "rules": [{"type": "root_node", "attr": "class", "value": "devsite-article-body"}]
         }
     }
-    vocab = Vocab()
     pipeline = Pipeline(conf=conf)
     data = Saver.load("testdata/guide.bin")
-    docs, sentences = pipeline.process(data)
+    docs, sentences, vocab = pipeline.process(data)
 
     Saver.dump(docs, "testdata/docs.bin")
     Saver.dump(sentences, "testdata/sentences.bin")

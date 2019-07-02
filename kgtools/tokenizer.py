@@ -4,9 +4,7 @@
 from nltk.tokenize import sent_tokenize as st, word_tokenize as wt
 import re
 import spacy
-from spacy.tokenizer import Tokenizer as T
-
-from kgtools.type import Doc, Sentence, Token
+from type import Vocab, Doc, Sentence, Token
 
 
 class Tokenizer:
@@ -20,7 +18,8 @@ class Tokenizer:
     #     "__CODE__": ""
     # }
 
-    def __init__(self, code_patterns=None):
+    def __init__(self, vocab=Vocab(), code_patterns=None):
+        self.vocab = vocab
         self.patterns = [
             re.compile(r'([a-zA-Z_][a-zA-Z\d_]*)(\.\1)+'),
             re.compile(r'[a-zA-Z_]([a-z][A-Z])'),
@@ -35,7 +34,7 @@ class Tokenizer:
         prefix_re = spacy.util.compile_prefix_regex(self.nlp.Defaults.prefixes)
         infix_re = spacy.util.compile_infix_regex(self.nlp.Defaults.infixes)
         suffix_re = spacy.util.compile_suffix_regex(self.nlp.Defaults.suffixes)
-        self.nlp.tokenizer = T(self.nlp.vocab, prefix_search=prefix_re.search, infix_finditer=infix_re.finditer,
+        self.nlp.tokenizer = spacy.tokenizer.Tokenizer(self.nlp.vocab, prefix_search=prefix_re.search, infix_finditer=infix_re.finditer,
                                suffix_search=suffix_re.search, token_match=hyphen_re.match)
 
     def sent_tokenize(self, text):
@@ -108,17 +107,18 @@ class Tokenizer:
             return False
         return True
 
-    def word_tokenize(self, sentence):
+    def word_tokenize_nltk(self, sentence):
         sentence = sentence.replace("e.g.", "__eg__").replace("E.g.", "__eg__").replace("E.G.", "__eg__").replace("i.e.", "__ie__").replace("I.e.", "__ie__").replace("I.E.", "__ie__")
         sentence = re.sub(r'([a-zA-Z ])\.([a-zA-Z ])', r'\1 . \2', sentence)
         sentence = re.sub(r'\s+', ' ', sentence)
 
         tokens = wt(sentence)
         tokens = [t.replace("__eg__", "e.g.").replace("__ie__", "i.e.") for t in tokens]
+        return tokens
 
-        sentence = " ".join(tokens)
+    def word_tokenize_spacy(self, sentence):
         # sentence = sentence.replace("__CODE__", "CODE$").replace("__IMG__", "IMG$").replace("__TAB__", "TAB$").replace("__URL__", "URL$").replace("__QUOTE__", "QUOTE$")
-        tokens = [Token(t.text, t.lemma_, pos=t.pos_, dep=t.dep_) for t in self.nlp(sentence)]
+        tokens = [Token(t.text, t.lemma_, vocab=self.vocab, pos=t.pos_, dep=t.dep_) for t in self.nlp(sentence)]
         # for token in tokens:
         #     token.text = token.text.replace("CODE$", "__CODE__").replace("IMG$", "__IMG__").replace("TAB$", "__TAB__").replace("URL$", "__URL__").replace("QUOTE$", "__QUOTE__")
         #     token.lemma = token.lemma.replace("code$", "__code__").replace("img$", "__img__").replace("tab$", "__tab__").replace("url$", "__url__").replace("quote$", "__quote__")
@@ -141,8 +141,55 @@ class Tokenizer:
                         sent2sent[sent] = sent
         sentences = set(sent2sent.values())
         for sent in sentences:
-            sent.tokens = self.word_tokenize(sent.text)
-        return docs, sentences
+            tokens = self.word_tokenize_nltk(sent.text)
+            sent.tokens = self.word_tokenize_spacy(" ".join(tokens))
+            sent.docs = {doc.url for doc in sent.docs}
+        return docs, sentences, self.vocab
+
+    # def __handle_sent(self, rawdocs):
+    #     docs = set()
+    #     sent2sent = {}
+    #     for rawdoc in rawdocs:
+    #         sents = []
+    #         for text in rawdoc:
+    #             sents.extend(self.sent_tokenize(text))
+    #         if len(sents) > 0:
+    #             docs.add(Doc(rawdoc.url, sents))
+    #             for sent in sents:
+    #                 if sent in sent2sent:
+    #                     new_sent = sent + sent2sent.pop(sent)
+    #                     sent2sent[new_sent] = new_sent
+    #                 else:
+    #                     sent2sent[sent] = sent
+    #     return docs, [sent2sent]
+
+    # def __handle_word(self, sents):
+    #     sentence_texts = []
+    #     for sent in sents:
+    #         tokens = self.word_tokenize_nltk(sent.text)
+    #         sentence_texts.append((sent, " ".join(tokens)))
+    #     return sentence_texts
+
+    # def tokenize_parallel(self, rawdocs):
+
+    #     docs, sent2sent_list = parallel(self.__handle_sent, list(rawdocs))
+    #     sent2sent = sent2sent_list.pop(0)
+    #     for _ in range(len(sent2sent_list)):
+    #         cur = sent2sent_list.pop(0)
+    #         for sent in cur.keys():
+    #             if sent in sent2sent:
+    #                 new_sent = sent + sent2sent.pop(sent)
+    #                 sent2sent[new_sent] = new_sent
+    #             else:
+    #                 sent2sent[sent] = sent
+
+    #     sentences = set(sent2sent.values())
+
+    #     pairs = parallel(self.__handle_word, list(sentences))
+    #     for sent, sent_text in pairs:
+    #         sent.tokens = self.word_tokenize_spacy(sent_text)
+    #         sent.docs = {doc.url for doc in sent.docs}
+    #     return docs, sentences
 
     def find_code(self, sentence):
         '''find code elements
