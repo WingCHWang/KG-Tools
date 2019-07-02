@@ -6,3 +6,4 @@ gensim
 numpy
 pathos
 aiohttp
+twine

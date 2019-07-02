@@ -4,7 +4,7 @@
 from setuptools import setup
 
 setup(name='kgtools',
-      version='0.1.1',
+      version='0.1.3',
       description='The tools for KG Team of Fudan SE LAB',
       url='https://github.com/FudanSELab/KG-Tools',
       author='Chong Wang',
@@ -12,7 +12,7 @@ setup(name='kgtools',
       license='MIT',
       packages=['kgtools'],
       zip_safe=False,
-      install_requires=['bs4', 'lxml', 'spacy', 'nltk', 'gensim', 'numpy', 'path', 'aiohttp'],
+      install_requires=['bs4', 'lxml', 'spacy', 'nltk', 'gensim', 'numpy', 'pathos', 'aiohttp'],
       python_requires='>=3'
       )
 
