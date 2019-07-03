@@ -98,7 +98,7 @@ def Parallel(workers=WORKERS, batch_size=None, shuffle=True, after_hook=None):
             _batch_size = total_size // workers + 1 if batch_size is None else batch_size
             # assert type(data) == list, "Type of data must be list"
             print(f"@Parallel[workers={workers}, data_size={total_size}, batch_size={_batch_size}]: parallel for {fn.__qualname__}.")
-            
+
             if shuffle:
                 print(f"@Parallel[workers={workers}, data_size={total_size}, batch_size={_batch_size}]: shuffle data for {fn.__qualname__}.")
                 random.shuffle(data)

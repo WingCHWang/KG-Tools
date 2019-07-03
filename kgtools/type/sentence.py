@@ -33,7 +33,14 @@ class Sentence:
             for doc in sent.docs:
                 doc.sents[doc.sent2index[sent]] = sent
             return sent
+        else:
+            print("The two sentences must have the same 'text'")
+            return self
 
+    def __iadd__(self, other):
+        if self == other:
+            self.docs |= other.docs
+            return self
         else:
             print("The two sentences must have the same 'text'")
             return self
