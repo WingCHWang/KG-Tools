@@ -122,5 +122,6 @@ class Spider:
 
 if __name__ == '__main__':
     spider = Spider("https://docs.oracle.com/javase/8/docs/api/allclasses-noframe.html")
-    spider.start_crawl()
+    # start = time.time()
+    spider.start_crawl(recursive_depth=2)
     spider.dump_storage("data/jdk8/all-class.html.json")

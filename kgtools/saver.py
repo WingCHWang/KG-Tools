@@ -31,7 +31,7 @@ class Saver:
             with Path(file_name).open("wb") as f:
                 dill.dump(obj, f)
         elif file_format == FileFormat.JSON:
-            with Path(file_name).open("r", encoding="utf-8") as f:
+            with Path(file_name).open("w", encoding="utf-8") as f:
                 json.dump(obj, f, indent=4)
         else:
             raise NotImplementedError

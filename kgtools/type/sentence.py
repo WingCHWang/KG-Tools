@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 
 from kgtools.annotation import Lazy
+from kgtools.type.span import Span
 
 
 class Sentence:
-    def __init__(self, text, docs=None, tokens=None):
+    def __init__(self, text, docs=None, tokens=None, nps=None):
         self.text = text
         self.docs = docs
         self.tokens = tokens
+        self.nps = set() if nps is None else nps
 
     def __str__(self):
         return self.text
@@ -35,6 +37,33 @@ class Sentence:
         else:
             print("The two sentences must have the same 'text'")
             return self
+
+    def add_nps(self, *pairs):
+        self.nps.update({Span(self, *pair) for pair in pairs})
+
+    def find_spans(self, *spans, is_lemma=True):
+        words = [token.lemma if is_lemma else token.text for token in self.tokens]
+        group_dict = {}
+        for span in spans:
+            length = len(span.split())
+            if length in group_dict:
+                group_dict[length].add(span)
+            else:
+                group_dict[length] = {span}
+        group_dict = dict(sorted(group_dict.items(), key=lambda x: x[0], reverse=True))
+        index = 0
+        result_dict = {}
+        while index < len(self):
+            for length, group in group_dict.items():
+                span = " ".join(words[index:index + length])
+                if span in group:
+                    result_dict[span] = index
+                    index += length
+                    break
+            else:
+                index += 1
+        result = [(span, result_dict.get(span, -1)) for span in spans]
+        return result
 
     @Lazy
     def tokenized_text(self):

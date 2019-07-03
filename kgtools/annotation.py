@@ -14,6 +14,7 @@ WORKERS = multiprocessing.cpu_count() - 1
 
 
 def TimeLog(fn):
+    @wraps(fn)
     def wrapper(*args, **kwargs):
         print("@TimeLog[%s]: %s starts." % (time.strftime("%X", time.localtime()), fn.__qualname__))
         start = time.time()
@@ -28,7 +29,7 @@ def TimeLog(fn):
 class Lazy(object):
     def __init__(self, func):
         self.func = func
-        print("@Lazy[%s]: lazy property is declared." % self.func.__name__)
+        print("@Lazy[%s]: lazy property is declared." % self.func.__qualname__)
 
     def __get__(self, instance, cls):
         val = self.func(instance)
@@ -69,6 +70,7 @@ def Cache(fn):
     cache = {}
     print("@Cache[%s]: add cache." % fn.__qualname__)
 
+    @wraps(fn)
     def wrapper(*arg):
         if arg not in cache:
             result = fn(*arg)

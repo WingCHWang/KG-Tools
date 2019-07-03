@@ -6,7 +6,8 @@ from typing import List
 import re
 from bs4 import BeautifulSoup
 
-from annotation import Parallel, TimeLog
+from kgtools.annotation import Parallel, TimeLog
+from kgtools.symbol import HTML
 
 
 class HTMLParser:
@@ -68,29 +69,29 @@ class HTMLParser:
 
             for table in entry.findAll("table"):
                 table.clear()
-                table.append("-TAB-")
+                table.append(f"{HTML.TAB}")
             for img in entry.findAll("img"):
                 if not img.get("alt") or len(img["alt"]) == 0:
-                    img_alt = "-IMG-"
+                    img_alt = f"{HTML.IMG}"
                 else:
                     img_alt = img["alt"]
                 img.insert_after(img_alt)
             for code in entry.findAll("code"):
                 string = code.get_text().strip()
                 if len(string.split()) > 5 or len(string) > 50:
-                    string = "-CODE-"
+                    string = f"{HTML.CODE}"
                 code.clear()
                 code.append(string)
 
             for pre in entry.findAll("pre"):
                 pre.clear()
-                pre.append("-PRE-.")
+                pre.append(f"{HTML.PRE}.")
             for pre in entry.findAll("blockquote"):
                 pre.clear()
-                pre.append("-QUOTE-.")
+                pre.append(f"{HTML.QUOTE}.")
             text = entry.get_text()
             text = text.strip() + " "
-            text = re.sub(r'(https?://.*?)([^a-zA-Z0-9/]?\s)', r'-URL-\2', text)
+            text = re.sub(r'(https?://.*?)([^a-zA-Z0-9/]?\s)', r"%s\2" % HTML.TAB, text)
             text = re.sub(r'\s+', ' ', text).strip()
             if len(text) > 0:
                 if text[-1] not in set(".?!:;,"):
@@ -119,6 +120,7 @@ class JavadocParser(HTMLParser):
         strings = []
         for div in body.select(".block"):
             string = div.get_text().strip()
+            string = re.sub(r'\s+', ' ', string)
             if len(string) > 0 and string[-1] not in set(".?!"):
                 string = string + "."
             strings.append(string)

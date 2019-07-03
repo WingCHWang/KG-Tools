@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 
 class Span:
-    def __init__(self, text, tokens):
-        self.text = text
-        self.tokens = tokens
+    def __init__(self, sentence, start, end):
+        self.sentence = sentence
+        self.start = start
+        self.end = end
 
     def __str__(self):
-        return text
+        return " ".join([str(t) for t in self.sentence.tokens[self.start:self.end]])
 
     def __add__(self, other):
-        return Span(self.text + " " + other.text, self.tokens + other.tokens)
+        if self.sentence == other.sentence and self.end == other.start:
+            self.end = other.end
+        return self

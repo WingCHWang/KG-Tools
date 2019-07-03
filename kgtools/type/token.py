@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from annotation import Lazy
+from kgtools.annotation import Lazy
 
 from kgtools.type.vocab import Vocab
 
