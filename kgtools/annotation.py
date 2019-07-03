@@ -79,11 +79,10 @@ def Cache(fn):
     return wrapper
 
 
-def Parallel(workers=WORKERS, batch_size=1000, shuffle=True, after_hook=None):
+def Parallel(workers=WORKERS, batch_size=None, shuffle=True, after_hook=None):
     def outer(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            print(f"@Parallel[workers={workers}, batch_size={batch_size}]: parallel for {fn.__qualname__}.")
 
             obj, data, _args = tuple(), tuple(), tuple()
             if hasattr(args[0].__class__, fn.__name__):
@@ -95,20 +94,21 @@ def Parallel(workers=WORKERS, batch_size=1000, shuffle=True, after_hook=None):
             if type(data) != list:
                 data = list(data)
 
+            total_size = len(data)
+            _batch_size = total_size // workers + 1 if batch_size is None else batch_size
             # assert type(data) == list, "Type of data must be list"
-
+            print(f"@Parallel[workers={workers}, data_size={total_size}, batch_size={_batch_size}]: parallel for {fn.__qualname__}.")
+            
             if shuffle:
-                print(f"@Parallel[workers={workers}, batch_size={batch_size}]: shuffle data for {fn.__qualname__}.")
+                print(f"@Parallel[workers={workers}, data_size={total_size}, batch_size={_batch_size}]: shuffle data for {fn.__qualname__}.")
                 random.shuffle(data)
 
             pool = Pool(workers)
             pool.terminate()
             pool.restart()
 
-            total_size = len(data)
-
             proc = []
-            for beg, end in zip(range(0, total_size, batch_size), range(batch_size, total_size + batch_size, batch_size)):
+            for beg, end in zip(range(0, total_size, _batch_size), range(_batch_size, total_size + _batch_size, _batch_size)):
                 batch = data[beg:end]
                 p = pool.apipe(fn, *obj, batch, *_args, **kwargs)
                 proc.append(p)
@@ -122,73 +122,3 @@ def Parallel(workers=WORKERS, batch_size=1000, shuffle=True, after_hook=None):
             return result
         return wrapper
     return outer
-
-
-if __name__ == "__main__":
-    # import re
-
-    # class Decamelizer:
-    #     def __init__(self):
-    #         pass
-
-    #     @Cache
-    #     def foo(self, camel_case):
-    #         decamelized = re.sub(r'([A-Za-z])(2|4)([A-CE-Za-ce-z])', r'\1 \2 \3', camel_case).strip()
-    #         decamelized = re.sub(r'_', " ", decamelized)
-    #         decamelized = re.sub(r'([A-Z]+)([A-Z][a-z0-9]+)', r'\1 \2', decamelized)
-    #         decamelized = re.sub(r'([0-9]?[A-Z]+)', r' \1', decamelized)
-    #         decamelized = re.sub(r'\s+', " ", decamelized).strip()
-    #         return decamelized
-
-    #     def bar(self, camel_case):
-    #         decamelized = re.sub(r'([A-Za-z])(2|4)([A-CE-Za-ce-z])', r'\1 \2 \3', camel_case).strip()
-    #         decamelized = re.sub(r'_', " ", decamelized)
-    #         decamelized = re.sub(r'([A-Z]+)([A-Z][a-z0-9]+)', r'\1 \2', decamelized)
-    #         decamelized = re.sub(r'([0-9]?[A-Z]+)', r' \1', decamelized)
-    #         decamelized = re.sub(r'\s+', " ", decamelized).strip()
-    #         return decamelized
-
-    #     def __call__(self, camel_case):
-    #         return self.foo(camel_case)
-
-    # decamelizer = Decamelizer()
-    # import time
-    # start = time.time()
-    # for _ in range(10000):
-    #     decamelizer("StringBuilder")
-    # end = time.time()
-    # print(end - start)
-
-    # start = time.time()
-    # for _ in range(10000):
-    #     decamelizer.bar("StringBuilder")
-    # end = time.time()
-    # print(end - start)
-    # class Foo:
-    #     def __init__(self):
-    #         pass
-
-    #     @Parallel(clazz="Foo")
-    #     def split(self, data):
-    #         return [s.split() for s in data]
-
-    # @Parallel(clazz=None)
-    # def foo(data):
-    #     return [s.split() for s in data]
-
-    # rs = foo(["a b c"] * 100)
-    # print(rs)
-
-    @Singleton
-    class Foo:
-        def __init__(self, a=1):
-            self.a = a
-            self.list = []
-
-    foo1 = Foo()
-    foo1.a = 2
-    foo1.list.append(1)
-    foo2 = Foo()
-    print(foo1 == foo2)
-    print(foo2.a)
-    print(foo2.list)
